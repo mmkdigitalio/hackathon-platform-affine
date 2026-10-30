@@ -81,8 +81,15 @@ add_federated_credential() {
     \"audiences\": [\"api://AzureADTokenExchange\"]
   }"
 }
+# GitHub issues either the classic subject (repo:owner/name:...) or, when the org opts into
+# immutable identifiers, repo:owner@<owner-id>/name@<repo-id>:... Register both for this repo.
+gh_owner_id="$(gh api "repos/$GITHUB_REPO" --jq .owner.id)"
+gh_repo_id="$(gh api "repos/$GITHUB_REPO" --jq .id)"
+immutable_repo="${GITHUB_REPO%%/*}@$gh_owner_id/${GITHUB_REPO#*/}@$gh_repo_id"
 add_federated_credential github-production "repo:$GITHUB_REPO:environment:$ENVIRONMENT"
 add_federated_credential github-pull-request "repo:$GITHUB_REPO:pull_request"
+add_federated_credential github-production-ids "repo:$immutable_repo:environment:$ENVIRONMENT"
+add_federated_credential github-pull-request-ids "repo:$immutable_repo:pull_request"
 
 # --- Role assignments, resource group scope only ---
 has_role() {
