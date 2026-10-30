@@ -213,7 +213,7 @@ The repository `mmkdigitalio/hackathon-platform-affine` is public, so the pipeli
   - Calls `scripts/deploy.sh`, then runs a smoke test: `GET https://<fqdn>/info` must report `compatibility == affineImageTag`.
   - A workflow-level `concurrency: affine-azure` with `cancel-in-progress: false` serializes runs.
 
-**Azure identity**: the app registration `affine-github-deploy` has a service principal and two federated credentials. The subjects are `repo:mmkdigitalio/hackathon-platform-affine:environment:production` and `…:pull_request`. It has two roles on the RG, and none at subscription level:
+**Azure identity**: the app registration `affine-github-deploy` has a service principal and two federated credentials. The subjects are `repo:mmkdigitalio/hackathon-platform-affine:environment:production` and `…:pull_request`. The **immutable-ID variants** `repo:mmkdigitalio@77622120/hackathon-platform-affine@1439566435:…` are registered too. The `mmkdigitalio` org issues that format, and the first PR run failed with `AADSTS700213` until they were added. It has two roles on the RG, and none at subscription level:
 - `Contributor`.
 - `Role Based Access Control Administrator`, with an ABAC condition that allows granting or removing **only** Key Vault Secrets Officer and Communication and Email Service Owner. These are the two roles the templates assign.
 

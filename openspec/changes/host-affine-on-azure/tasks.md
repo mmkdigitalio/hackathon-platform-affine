@@ -89,7 +89,7 @@
 - [ ] 8.2 Collaboration. Verify that two users in different browsers see each other's edits on the same document live, without reloading.
 - [ ] 8.3 Durability. Upload an image, then restart the revision (`az containerapp revision restart`). Verify that the document and image are intact and that the signed-in session survives.
 - [ ] 8.4 Access control. Verify that anonymous sign-up is refused, and that a user invited or added by the admin can sign in and open the workspace.
-- [ ] 8.5 Security. Verify all of the following:
+- [x] 8.5 Security. Verify all of the following:
   - The Container App configuration shows credentials only as secret references.
   - `psql` without TLS is refused.
   - A connection from a non-allow-listed IP is refused.
@@ -118,9 +118,9 @@
 
 - [x] 10.1 Extend `scripts/deploy.sh` for CI: take the deployer principal ID and type, the owner, and the SMTP app/SP IDs from environment variables when set, skipping Graph calls; fail clearly in CI if `acs-smtp-client-secret` is missing. Pass the principal type to `bootstrap.bicep`. Verify that `shellcheck` is clean and that a local run behaves as before.
 - [x] 10.2 Add `.github/workflows/deploy.yml` with the `validate`, `what-if` (same-repo PRs only), and `deploy` (`production` environment, `main` only) jobs, the `concurrency` group, and the `/info` smoke test (design D13). Verify that `actionlint` reports no errors.
-- [ ] 10.3 Add `scripts/setup-cicd.sh`. It creates the app registration `affine-github-deploy` with its service principal and federated credentials, assigns Contributor and the ABAC-conditioned RBAC Administrator role on the RG, and creates the GitHub environment `production` with a `main`-only branch policy and the repository variables. It must be idempotent. Verify with `shellcheck`, run it, and check `az role assignment list --assignee <sp>` (RG scope only) and `gh variable list`.
-- [ ] 10.4 Push a feature branch and open a PR. Verify that `validate` and `what-if` succeed and that `what-if` shows no unexpected changes.
-- [ ] 10.5 Merge the PR. Verify that the `deploy` job succeeds, including the smoke test, and that a second run reports no resource changes.
+- [x] 10.3 Add `scripts/setup-cicd.sh`. It creates the app registration `affine-github-deploy` with its service principal and federated credentials, assigns Contributor and the ABAC-conditioned RBAC Administrator role on the RG, and creates the GitHub environment `production` with a `main`-only branch policy and the repository variables. It must be idempotent. Verify with `shellcheck`, run it, and check `az role assignment list --assignee <sp>` (RG scope only) and `gh variable list`.
+- [x] 10.4 Push a feature branch and open a PR. Verify that `validate` and `what-if` succeed and that `what-if` shows no unexpected changes.
+- [x] 10.5 Merge the PR. Verify that the `deploy` job succeeds, including the smoke test, and that a second run reports no resource changes.
 - [x] 10.6 Document the pipeline, the one-time bootstrap order, and how to redeploy manually (`workflow_dispatch`) in `docs/runbook.md`. Verify that the documented commands match the workflow and scripts.
 
 ## Workflow follow-up
