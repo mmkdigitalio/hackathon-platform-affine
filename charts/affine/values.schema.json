@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "AFFiNE chart values",
+  "description": "Top level stays open: the platform adds rolloutMarker, platform.* and possibly further keys.",
+  "type": "object",
+  "required": ["image", "secretName"],
+  "properties": {
+    "image": {
+      "type": "object",
+      "required": ["repository", "digest"],
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "pullPolicy": { "enum": ["Always", "IfNotPresent", "Never"] }
+      }
+    },
+    "secretName": { "type": "string", "minLength": 1 },
+    "imagePullSecretName": { "type": "string" },
+    "platform": {
+      "type": "object",
+      "properties": {
+        "url": { "type": "string" },
+        "host": { "type": "string" },
+        "persistentVolumeClaim": { "type": "string" },
+        "replicas": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "AFFiNE runs as a single replica on a ReadWriteOnce volume"
+        },
+        "resources": { "type": "object" }
+      }
+    },
+    "affine": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "nodeOptions": {
+          "type": "string",
+          "description": "NODE_OPTIONS for the server container, e.g. --max-old-space-size=1536"
+        },
+        "config": {
+          "type": "object",
+          "description": "Deep-merged into AFFiNE's config.json"
+        }
+      }
+    }
+  }
+}

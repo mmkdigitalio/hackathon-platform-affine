@@ -1,0 +1,7 @@
+# Nicht reparierbares Fehlerszenario (L11) für platform/operations/apps/affine/fault-invalid-config.yaml.
+# Schemagültig (values.schema.json: affine.nodeOptions ist ein String). Wirkung: Der Container affine
+# bricht bei jedem Start mit "FATAL ERROR: Reached heap limit ... JavaScript heap out of memory" ab
+# (Exit 133, CrashLoopBackOff); restart und redeploy ändern daran nichts. Gilt nur für den
+# Server-Container, nicht für die Migrationen: Datenbank, PVC und Secrets bleiben unberührt.
+path: [affine, nodeOptions]
+value: --max-old-space-size=16

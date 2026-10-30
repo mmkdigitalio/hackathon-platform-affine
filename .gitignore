@@ -11,3 +11,6 @@ infra/**/*.json
 exports/
 
 .DS_Store
+
+# Smoke test dependencies
+smoke/node_modules/

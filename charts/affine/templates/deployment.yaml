@@ -1,0 +1,102 @@
+{{- $env := list
+  (dict "name" "AFFINE_INDEXER_ENABLED" "value" "false")
+-}}
+{{- with .Values.platform.url }}
+{{- $env = append $env (dict "name" "AFFINE_SERVER_EXTERNAL_URL" "value" .) }}
+{{- $env = append $env (dict "name" "AFFINE_SERVER_HTTPS" "value" (hasPrefix "https://" . | toString)) }}
+{{- end }}
+{{- with .Values.platform.host }}
+{{- $env = append $env (dict "name" "AFFINE_SERVER_HOST" "value" .) }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    {{- include "affine.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.platform.replicas | default 0 | int }}
+  # ReadWriteOnce volume: the old pod must release it before the new one starts
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "affine.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      # Selector labels only: a chart release alone must not restart the pod (Recreate means downtime)
+      labels:
+        {{- include "affine.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include "affine.config" . | sha256sum }}
+    spec:
+      {{- with .Values.imagePullSecretName }}
+      imagePullSecrets:
+        - name: {{ . }}
+      {{- end }}
+      initContainers:
+        # Upstream migrations (Prisma + data migrations) and first-start private key generation
+        - name: migrate
+          image: {{ include "affine.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["node", "./scripts/self-host-predeploy.js"]
+          env:
+            {{- toYaml $env | nindent 12 }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.secretName }}
+          {{- with .Values.platform.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            {{- include "affine.volumeMounts" . | nindent 12 }}
+      containers:
+        - name: affine
+          image: {{ include "affine.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["node", "./dist/main.js"]
+          ports:
+            - name: http
+              containerPort: 3010
+          env:
+            {{- toYaml $env | nindent 12 }}
+            {{- with .Values.affine.nodeOptions }}
+            - name: NODE_OPTIONS
+              value: {{ . | quote }}
+            {{- end }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.secretName }}
+          {{- with .Values.platform.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            {{- include "affine.volumeMounts" . | nindent 12 }}
+          startupProbe:
+            httpGet: { path: /info, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet: { path: /info, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: { path: /info, port: http }
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+      volumes:
+        - name: data
+          {{- with .Values.platform.persistentVolumeClaim }}
+          persistentVolumeClaim:
+            claimName: {{ . }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-config
