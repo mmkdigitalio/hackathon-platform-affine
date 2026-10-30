@@ -1,3 +1,0 @@
-# Built-in Azure role definition ID (Key Vault Secrets Officer), a public constant, not a secret.
-infra/modules/keyvault.bicep:generic-api-key:20
-scripts/setup-cicd.sh:generic-api-key:14

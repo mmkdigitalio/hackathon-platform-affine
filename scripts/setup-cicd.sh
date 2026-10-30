@@ -12,7 +12,7 @@ ENVIRONMENT="production"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Roles the templates assign; the pipeline may grant only these (design D13).
-KV_SECRETS_OFFICER="b86a8fe4-44ce-4948-aee5-eccb2c155cd7"
+KV_SECRETS_OFFICER="b86a8fe4-44ce-4948-aee5-eccb2c155cd7" # gitleaks:allow (public built-in role ID)
 EMAIL_SERVICE_OWNER="09976791-48a7-449e-bb21-39d1a415f350"
 
 usage() {

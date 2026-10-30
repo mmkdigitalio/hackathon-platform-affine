@@ -17,7 +17,7 @@ param deployerPrincipalId string
 param deployerPrincipalType string = 'User'
 
 // Built-in role: Key Vault Secrets Officer
-var secretsOfficerRoleId = 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7'
+var secretsOfficerRoleId = 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7' // gitleaks:allow (public built-in role ID)
 
 resource vault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: name
