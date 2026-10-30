@@ -167,7 +167,8 @@ ContainerAppConsoleLogs_CL
 // Migration markers for the current revision
 ContainerAppConsoleLogs_CL
 | where ContainerAppName_s == "ca-affine"
-| where Log_s has_any ("running prisma migrations", "running data migrations", "Done")
+| where Log_s contains "running prisma migrations" or Log_s contains "running data migrations"
+    or Log_s contains "creating config file" or Log_s contains "Listening on"
 | project TimeGenerated, RevisionName_s, Log_s
 ```
 
