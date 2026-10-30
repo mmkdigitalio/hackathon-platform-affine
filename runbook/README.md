@@ -65,7 +65,7 @@ Danach jeweils Smoke-Test abwarten. Bleibt er nach `restart` und einem `redeploy
 
 - Nicht mehr als 1 Replica: Anhänge liegen auf einem ReadWriteOnce-Volume (das Chart-Schema lässt höchstens 1 zu).
 - Keine Änderungen an Datenbank `affine`, PVC `affine-data`, Secret `affine-platform`, Namespace oder Ingress. Nichts löschen.
-- Keine Wiederherstellung, kein Zurückspielen von Migrationen, kein Versionswechsel. Versionen ändern sich nur per Pull Request (siehe [Upgrade](#upgrade)).
+- Keine Wiederherstellung, kein Zurückspielen von Migrationen, kein Versionswechsel. Versionen ändern sich nur über das Repository `hackathon-platform-affine` (siehe [Upgrade](#upgrade)).
 - `values` im Sollzustand nicht autonom ändern; ein Revert eines fehlerhaften Commits ist eine menschliche Entscheidung.
 - Nach Datenverlust-Befunden (`document`, `attachment`) keine weiteren Aktionen, um Spuren nicht zu überschreiben.
 
@@ -91,9 +91,9 @@ Der Smoke-Test meldet sich als `smoke@affine.invalid` an. Das Passwort sind die 
 
 ## Upgrade
 
-1. Im Repository `hackathon-platform-affine` per Pull Request `image` in `platform-delivery/environments/staging/affine.yaml` (Digest des neuen Upstream-Releases) und `appVersion` in `charts/affine/Chart.yaml` anheben.
+1. Im Repository `hackathon-platform-affine` auf `main` `image` in `platform-delivery/environments/staging/affine.yaml` (Digest des neuen Upstream-Releases) und `appVersion` in `charts/affine/Chart.yaml` anheben.
 2. `platform-package.yml` testet Chart, Migrationen und Smoke-Test in kind, einschließlich Persistenz und Fehlerwert.
-3. Nach dem Merge veröffentlicht der Workflow Chart und Smoke-Image und öffnet den Übergabe-PR im Plattform-Repository; `app-deploy.yml` rollt nach dessen Merge aus.
+3. Nur wenn beides grün ist, veröffentlicht der Workflow Chart und Smoke-Image und committet Katalogeintrag und Sollzustand (validiert) auf `main` des Plattform-Repositorys; `app-deploy.yml` rollt daraufhin aus.
 4. Vorher den Zeitpunkt notieren (Ziel für einen Point-in-Time-Restore).
 
 Lokal prüfen: `test/e2e-kind.sh --fault` (Docker, kind, kubectl, helm, Python mit PyYAML).

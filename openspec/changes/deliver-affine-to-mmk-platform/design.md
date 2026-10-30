@@ -30,8 +30,8 @@ The fixture (workspace, doc `mmk-smoke-persistence`, attachment) is created only
 ### D8: Fault value `affine.nodeOptions = --max-old-space-size=16`
 `NODE_OPTIONS` is a legitimate tuning value, and the staging default is `1536`. With 16 MB of heap, AFFiNE 0.27.4 aborts on every start with a V8 OOM (exit 133). This was verified twice locally and in kind. The value applies only to the server container, so migrations, the database, the PVC, and secrets are untouched, and neither `restart` nor `redeploy` changes the outcome.
 
-### D9: Publication to GHCR, handoff by PR
-The chart is published as `0.1.<run number>` to `oci://ghcr.io/mmkdigitalio/charts`, and the smoke image as `ghcr.io/mmkdigitalio/affine-smoke@<digest>`, both with `GITHUB_TOKEN`. The handoff job writes the catalog entry with the real smoke digest and `runbook.commit = github.sha`. It then sets image and chart version in the staging desired state with the platform's own `set-desired` CLI and opens a PR. The PR auto-merges only when the catalog entry is unchanged.
+### D9: Publication to GHCR, handoff straight to the platform's `main`
+The chart is published as `0.1.<run number>` to `oci://ghcr.io/mmkdigitalio/charts`, and the smoke image as `ghcr.io/mmkdigitalio/affine-smoke@<digest>`, both with `GITHUB_TOKEN`. The handoff job writes the catalog entry with the real smoke digest and `runbook.commit = github.sha`. It then sets image and chart version in the staging desired state with the platform's own `set-desired` CLI, runs the platform validator, and pushes to the platform's `main` (rebasing up to three times when others pushed meanwhile). There are no pull requests, at the team's request. The gate is this workflow: publication and handoff only happen after `check` and the kind end-to-end test pass.
 
 ## Risks / Trade-offs
 

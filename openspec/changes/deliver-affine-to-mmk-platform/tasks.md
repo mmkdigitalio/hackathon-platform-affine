@@ -32,11 +32,15 @@
   - The run after a restart finds the fixture again.
   - The fault value fails the rollout, and a restart does not fix it.
   - After the revert, the fixture is found again.
-- [ ] 5.2 Merge `platform-package.yml`. Verify that the PR runs `check` and `e2e` and that `main` runs `publish`.
-- [ ] 5.3 Set the repository secret `PLATFORM_REPO_TOKEN`. Verify that `handoff` opens the PR in the platform repository with the real smoke digest, chart version, and runbook commit.
+- [x] 5.2 Merge `platform-package.yml`. Verify that the PR runs `check` and `e2e` and that `main` runs `publish`.
+- [x] 5.3 Hand the first release over by hand: commit the catalog entry (smoke digest `sha256:550ca3d0…`, runbook `3beac9a`), the staging desired state (chart `0.1.2`) and the fault value to platform `main` (`9cef41e`). Verify that the platform validator passes and that `app-deploy.yml` selects `affine/staging` as its target.
+- [ ] 5.4 Set the repository secret `PLATFORM_REPO_TOKEN` (contents write on the platform repository only). Verify that `handoff` commits the next release to platform `main`.
+- [ ] 5.5 Make the GHCR packages `affine-smoke` and `charts/affine` public. Verify that an anonymous pull token can list their tags.
 
 ## 6. Platform-side follow-ups (other strands)
 
 - [x] 6.1 Check whether the foundation server needs extensions. Verify that with a login lacking `CREATE` on its database, migrations warn but succeed and both smoke runs pass (no `PGCRYPTO`/`VECTOR` allowlist needed).
-- [ ] 6.2 Strand B: create `platform/environments/staging/affine.yaml` from the proposal, and review the ingress body limit for attachments.
-- [ ] 6.3 Copy the fault value into `platform/operations/apps/affine/fault-invalid-config.yaml`, and update the handoff table in `LIEFERANFORDERUNGEN.md`.
+- [x] 6.2 Create `platform/environments/staging/affine.yaml` from the proposal.
+- [ ] 6.3 Strand B: review the ingress body limit for attachments over 1 MB.
+- [ ] 6.4 Strand A: deploy the foundation and configure the Pulumi backend secrets. Then re-run `app-deploy.yml` for `affine`/`staging` (the first run on `9cef41e` stopped at the missing `backend-account`).
+- [x] 6.5 Copy the fault value into `platform/operations/apps/affine/fault-invalid-config.yaml`, and update the handoff table in `LIEFERANFORDERUNGEN.md`.

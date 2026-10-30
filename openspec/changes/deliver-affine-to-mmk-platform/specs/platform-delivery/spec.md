@@ -60,6 +60,6 @@ The delivery SHALL name a path and value under `values` that pass the chart sche
 ### Requirement: Automated publication and handoff
 Every change to the package SHALL be checked and tested end to end before publication. Publication from `main` SHALL produce a versioned OCI chart and a smoke image addressed by digest. It SHALL propose the catalog entry and desired state to the platform repository with the runbook pinned to the publishing commit.
 
-#### Scenario: Merge to main
-- **WHEN** a change to `charts/`, `smoke/`, `runbook/`, or `platform-delivery/` is merged
-- **THEN** the workflow publishes chart `0.1.<run>` and the smoke image, and opens a PR in the platform repository carrying the new chart version, smoke digest, and runbook commit
+#### Scenario: Change on main
+- **WHEN** a change to `charts/`, `smoke/`, `runbook/`, or `platform-delivery/` lands on `main`
+- **THEN** the workflow publishes chart `0.1.<run>` and the smoke image, and commits to `main` of the platform repository, after validation, the new chart version, smoke digest, and runbook commit

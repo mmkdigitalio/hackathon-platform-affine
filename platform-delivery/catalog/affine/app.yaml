@@ -1,6 +1,6 @@
 # Katalogeintrag AFFiNE (Lieferung L1) für mmkdigitalio/hackathon-platform-team: platform/catalog/affine/app.yaml.
-# Quelle: mmkdigitalio/hackathon-platform-affine, platform-delivery/. Die Platzhalter (Smoke-Image-Digest,
-# Runbook-Commit) setzt .github/workflows/platform-package.yml beim Übergabe-PR.
+# Quelle: mmkdigitalio/hackathon-platform-affine, platform-delivery/. Smoke-Image-Digest und Runbook-Commit
+# setzt .github/workflows/platform-package.yml beim Übertragen auf main des Plattform-Repositorys.
 schemaVersion: "0.1"
 appId: affine
 description: AFFiNE (Wissensdatenbank und Whiteboard), unverändertes Upstream-Release

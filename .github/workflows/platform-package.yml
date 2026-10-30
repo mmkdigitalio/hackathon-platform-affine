@@ -1,6 +1,6 @@
 # Platform package for mmkdigitalio/hackathon-platform-team (platform/operations/apps/affine/LIEFERANFORDERUNGEN.md):
 # checks chart, smoke test and catalog entry on every PR, tests them end to end in kind, and on main
-# publishes the chart and smoke image to GHCR and opens the handoff PR in the platform repository.
+# publishes the chart and smoke image to GHCR and commits catalog entry and desired state to the platform's main.
 name: platform-package
 
 on:
@@ -138,8 +138,9 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   handoff:
-    # Opens/updates the PR in the platform repository. Needs a token with contents and
-    # pull-requests write access there; without it the step summary of publish is the handoff.
+    # Commits catalog entry and desired state straight to main of the platform repository (validated
+    # first, since no app-plan.yml PR gate runs). Needs a token with contents write access there;
+    # without it the step summary of publish is the handoff.
     needs: publish
     runs-on: ubuntu-latest
     env:
@@ -175,30 +176,30 @@ jobs:
           SMOKE="$SMOKE_IMAGE@$SMOKE_DIGEST" yq '.smokeTest.image = strenv(SMOKE) | .runbook.commit = strenv(GITHUB_SHA)' \
             platform-delivery/catalog/affine/app.yaml > "$catalog"
           image=$(yq -r '.image' platform-delivery/environments/staging/affine.yaml)
-          if [[ -f "$desired" ]]; then
+          cd .platform/platform/schemas/app-catalog
+          npm ci --no-audit --no-fund
+          if [[ -f "$GITHUB_WORKSPACE/$desired" ]]; then
             # B owns the file; only image and chart version move (same as app-update-desired-state.yml)
-            (cd .platform/platform/schemas/app-catalog && npm ci --no-audit --no-fund &&
-              npx tsx src/cli.ts set-desired --app affine --env staging --image "$image" --chart-version "$CHART_VERSION")
+            npx tsx src/cli.ts set-desired --app affine --env staging --image "$image" --chart-version "$CHART_VERSION"
           else
             CHART_VERSION="$CHART_VERSION" yq '.chart.version = strenv(CHART_VERSION)' \
-              platform-delivery/environments/staging/affine.yaml > "$desired"
+              "$GITHUB_WORKSPACE/platform-delivery/environments/staging/affine.yaml" > "$GITHUB_WORKSPACE/$desired"
           fi
-      - name: Pull request
+          npx tsx src/cli.ts validate
+      - name: Push to main
         if: steps.token.outputs.ok
         working-directory: .platform
         run: |
           git add platform/catalog/affine platform/environments/staging/affine.yaml
           if git diff --cached --quiet; then echo "Platform repository already up to date."; exit 0; fi
-          catalog_changed=$(git diff --cached --quiet -- platform/catalog/affine || echo true)
-          branch="affine/package-${GITHUB_SHA:0:12}"
-          title="affine: Paket ${GITHUB_SHA:0:12} (Chart ${{ needs.publish.outputs.chart-version }})"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git switch -c "$branch"
-          git commit -q -m "$title" -m "Quelle: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$GITHUB_SHA"
-          git push -q --force-with-lease origin "$branch"
-          url=$(gh pr create --base main --head "$branch" --title "$title" \
-            --body "Automatisch aus $GITHUB_REPOSITORY ($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID).")
-          # Only image/chart moves merge on their own; catalog changes get a human review
-          if [[ -z "$catalog_changed" ]]; then gh pr merge "$url" --auto --squash; fi
-          echo "Pull request: $url" >> "$GITHUB_STEP_SUMMARY"
+          git commit -q -m "feat(apps): AFFiNE-Paket ${GITHUB_SHA:0:12} (Chart ${{ needs.publish.outputs.chart-version }})" \
+            -m "Quelle: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$GITHUB_SHA"
+          # Others push to main too: rebase on conflicts-free updates and retry
+          for attempt in 1 2 3; do
+            git push -q origin HEAD:main && break
+            [[ $attempt -lt 3 ]] || exit 1
+            git pull -q --rebase origin main
+          done
+          echo "Pushed to $PLATFORM_REPO main: $(git rev-parse --short HEAD)" >> "$GITHUB_STEP_SUMMARY"
