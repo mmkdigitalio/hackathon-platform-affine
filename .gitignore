@@ -1,0 +1,13 @@
+# Local overrides that may carry operator-specific or secret values
+*.local.bicepparam
+.env
+.env.*
+
+# Bicep / ARM build output
+infra/**/*.json
+!infra/affine/config.json
+
+# Exports taken before teardown (database dumps, share copies)
+exports/
+
+.DS_Store

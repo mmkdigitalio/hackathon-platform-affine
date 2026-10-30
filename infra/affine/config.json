@@ -1,0 +1,13 @@
+{
+  "$schema": "https://github.com/toeverything/affine/releases/latest/download/config.schema.json",
+  "server": {
+    "name": "MMK DIGITAL AFFiNE"
+  },
+  "auth": {
+    "allowSignup": false,
+    "allowSignupForOauth": false
+  },
+  "indexer": {
+    "enabled": false
+  }
+}
