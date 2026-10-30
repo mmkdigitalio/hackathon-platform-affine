@@ -1,6 +1,6 @@
 # Platform package for mmkdigitalio/hackathon-platform-team (platform/operations/apps/affine/LIEFERANFORDERUNGEN.md):
 # checks chart, smoke test and catalog entry on every PR, tests them end to end in kind, and on main
-# publishes the chart and smoke image to GHCR and commits catalog entry and desired state to the platform's main.
+# publishes the chart and smoke image to GHCR plus a release that the platform's app-affine-sync.yml picks up.
 name: platform-package
 
 on:
@@ -93,7 +93,7 @@ jobs:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write # release with platform-release.json
       packages: write
     outputs:
       smoke-digest: ${{ steps.smoke.outputs.digest }}
@@ -136,70 +136,16 @@ jobs:
             echo "- Smoke image: \`$SMOKE_IMAGE@${{ steps.smoke.outputs.digest }}\`"
             echo "- Runbook commit: \`$GITHUB_SHA\`"
           } >> "$GITHUB_STEP_SUMMARY"
-
-  handoff:
-    # Commits catalog entry and desired state straight to main of the platform repository (validated
-    # first, since no app-plan.yml PR gate runs). Needs a token with contents write access there;
-    # without it the step summary of publish is the handoff.
-    needs: publish
-    runs-on: ubuntu-latest
-    env:
-      GH_TOKEN: ${{ secrets.PLATFORM_REPO_TOKEN }}
-    steps:
-      - name: Token present?
-        id: token
-        run: |
-          if [[ -n "$GH_TOKEN" ]]; then echo "ok=true" >> "$GITHUB_OUTPUT"; else
-            echo "::notice::PLATFORM_REPO_TOKEN not set; hand over manually (see publish summary)"; fi
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: steps.token.outputs.ok
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: steps.token.outputs.ok
-        with:
-          repository: ${{ env.PLATFORM_REPO }}
-          token: ${{ secrets.PLATFORM_REPO_TOKEN }}
-          path: .platform
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        if: steps.token.outputs.ok
-        with:
-          node-version: 22
-      - name: Catalog entry and desired state
-        if: steps.token.outputs.ok
+      - name: Release for the platform
+        # hackathon-platform-team's app-affine-sync.yml reads the latest release (no token needed, repo is
+        # public), writes catalog entry and desired state to its main and starts app-deploy.yml.
         env:
-          SMOKE_DIGEST: ${{ needs.publish.outputs.smoke-digest }}
-          CHART_VERSION: ${{ needs.publish.outputs.chart-version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.chart.outputs.version }}
+          SMOKE: ${{ env.SMOKE_IMAGE }}@${{ steps.smoke.outputs.digest }}
         run: |
-          catalog=.platform/platform/catalog/affine/app.yaml
-          desired=.platform/platform/environments/staging/affine.yaml
-          mkdir -p "$(dirname "$catalog")"
-          # Catalog: ours, with the published smoke digest and the runbook at this commit
-          SMOKE="$SMOKE_IMAGE@$SMOKE_DIGEST" yq '.smokeTest.image = strenv(SMOKE) | .runbook.commit = strenv(GITHUB_SHA)' \
-            platform-delivery/catalog/affine/app.yaml > "$catalog"
-          image=$(yq -r '.image' platform-delivery/environments/staging/affine.yaml)
-          cd .platform/platform/schemas/app-catalog
-          npm ci --no-audit --no-fund
-          if [[ -f "$GITHUB_WORKSPACE/$desired" ]]; then
-            # B owns the file; only image and chart version move (same as app-update-desired-state.yml)
-            npx tsx src/cli.ts set-desired --app affine --env staging --image "$image" --chart-version "$CHART_VERSION"
-          else
-            CHART_VERSION="$CHART_VERSION" yq '.chart.version = strenv(CHART_VERSION)' \
-              "$GITHUB_WORKSPACE/platform-delivery/environments/staging/affine.yaml" > "$GITHUB_WORKSPACE/$desired"
-          fi
-          npx tsx src/cli.ts validate
-      - name: Push to main
-        if: steps.token.outputs.ok
-        working-directory: .platform
-        run: |
-          git add platform/catalog/affine platform/environments/staging/affine.yaml
-          if git diff --cached --quiet; then echo "Platform repository already up to date."; exit 0; fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -q -m "feat(apps): AFFiNE-Paket ${GITHUB_SHA:0:12} (Chart ${{ needs.publish.outputs.chart-version }})" \
-            -m "Quelle: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$GITHUB_SHA"
-          # Others push to main too: rebase on conflicts-free updates and retry
-          for attempt in 1 2 3; do
-            git push -q origin HEAD:main && break
-            [[ $attempt -lt 3 ]] || exit 1
-            git pull -q --rebase origin main
-          done
-          echo "Pushed to $PLATFORM_REPO main: $(git rev-parse --short HEAD)" >> "$GITHUB_STEP_SUMMARY"
+          jq -n --arg sha "$GITHUB_SHA" --arg chart "$VERSION" --arg smoke "$SMOKE" \
+            '{sourceSha: $sha, chartVersion: $chart, smokeImage: $smoke}' > platform-release.json
+          gh release create "package-$VERSION" platform-release.json --target "$GITHUB_SHA" --latest \
+            --title "Platform package $VERSION" \
+            --notes "Chart \`$CHART_OCI/affine:$VERSION\`, smoke image \`$SMOKE\`, runbook at \`$GITHUB_SHA\`."

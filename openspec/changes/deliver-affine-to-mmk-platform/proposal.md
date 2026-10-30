@@ -11,7 +11,7 @@ The MMK platform ([`mmkdigitalio/hackathon-platform-team`](https://github.com/mm
 - Add the platform runbook `runbook/README.md`: symptoms, diagnosis, the allowed actions `restart` and `redeploy`, and their limits.
 - Add `platform-delivery/`: the catalog entry, a proposed staging desired state, and the non-repairable fault value, laid out so the platform validator can check it with `--tree`.
 - Add `test/e2e-kind.sh`, which emulates the platform's app path in kind. It checks the first run, persistence across a restart, and the fault value.
-- Add `.github/workflows/platform-package.yml`. It checks and end-to-end tests the package on each PR. On `main` it publishes the chart and smoke image to GHCR and commits the validated catalog entry and desired state to `main` of the platform repository.
+- Add `.github/workflows/platform-package.yml`. It checks and end-to-end tests the package on each PR. On `main` it publishes the chart and smoke image to GHCR and creates a release that the platform repository's `app-affine-sync.yml` applies to its `main`.
 
 **Out of scope**: changes to the platform repository itself (catalog PR, ingress annotations, `azure.extensions`), production environment, and retiring the Azure Container Apps deployment from `host-affine-on-azure`. Both deployments can coexist; they share no resources.
 

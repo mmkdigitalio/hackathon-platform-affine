@@ -62,4 +62,4 @@ Every change to the package SHALL be checked and tested end to end before public
 
 #### Scenario: Change on main
 - **WHEN** a change to `charts/`, `smoke/`, `runbook/`, or `platform-delivery/` lands on `main`
-- **THEN** the workflow publishes chart `0.1.<run>` and the smoke image, and commits to `main` of the platform repository, after validation, the new chart version, smoke digest, and runbook commit
+- **THEN** the workflow publishes chart `0.1.<run>` and the smoke image, and a release that the platform's sync workflow validates and commits to its `main`, the new chart version, smoke digest, and runbook commit
