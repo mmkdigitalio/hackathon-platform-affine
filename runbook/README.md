@@ -56,7 +56,7 @@ Der Smoke-Test schreibt als letzte Zeile ein JSON mit `evidence`; `check` nennt 
 
 ## Erlaubte Aktionen
 
-- **`restart`**: `kubectl -n $NS rollout restart deployment/affine`. Wegen `Recreate` ist AFFiNE etwa eine Minute nicht erreichbar; die Migrationen laufen erneut und sind idempotent. Daten bleiben unberührt.
+- **`restart`**: Werkzeug `restart_workload` des Agenten. Es setzt unter der App-Sperre die Annotation `ops.mmk/action-id=<actionId>` am Pod-Template von `deployment/affine` (gleiche Wirkung wie `kubectl rollout restart`) und beobachtet den Rollout bis zu 180 Sekunden. Wegen `Recreate` ist AFFiNE etwa eine Minute nicht erreichbar; die Migrationen laufen erneut und sind idempotent. Daten bleiben unberührt. Hilft bei hängenden Pods, nicht bei 0 Replicas (dann `redeploy`). Das nächste `redeploy` entfernt die Annotation wieder, was einen weiteren Neustart auslöst.
 - **`redeploy`**: `app-deploy.yml` für `affine`/`<env>`. Erzwingt ein Helm-Upgrade auf den Sollzustand (setzt manuelle Abweichungen wie die Replica-Zahl zurück). Ändert nichts an Datenbank, PVC oder Secrets.
 
 Danach jeweils Smoke-Test abwarten. Bleibt er nach `restart` und einem `redeploy` negativ, ist der Fall nicht autonom lösbar: `needs_attention` mit Befund und, falls vorhanden, dem auslösenden Commit.
