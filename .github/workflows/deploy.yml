@@ -1,0 +1,99 @@
+# Validates every PR, previews Azure changes for same-repo PRs, and deploys main.
+# Azure auth is OIDC (no stored secrets); see design D13 and docs/runbook.md.
+name: deploy
+
+on:
+  pull_request:
+    branches: [main]
+    paths: &paths
+      - infra/**
+      - scripts/**
+      - .github/workflows/deploy.yml
+  push:
+    branches: [main]
+    paths: *paths
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One Azure deployment at a time; never cancel one that is running.
+concurrency:
+  group: affine-azure
+  cancel-in-progress: false
+
+env:
+  AZURE_CORE_OUTPUT: none
+  AFFINE_OWNER: ${{ vars.AFFINE_OWNER }}
+  AFFINE_DEPLOYER_PRINCIPAL_ID: ${{ vars.AFFINE_DEPLOYER_PRINCIPAL_ID }}
+  AFFINE_DEPLOYER_PRINCIPAL_TYPE: ServicePrincipal
+  AFFINE_SMTP_CLIENT_ID: ${{ vars.AFFINE_SMTP_CLIENT_ID }}
+  AFFINE_SMTP_PRINCIPAL_ID: ${{ vars.AFFINE_SMTP_PRINCIPAL_ID }}
+  AFFINE_OPERATOR_IPS: ${{ vars.AFFINE_OPERATOR_IPS }}
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install Bicep
+        run: az bicep install
+      - name: Build and lint Bicep
+        run: |
+          for f in infra/bootstrap.bicep infra/main.bicep; do
+            az bicep build --file "$f" --stdout > /dev/null
+            az bicep lint --file "$f"
+          done
+          az bicep build-params --file infra/main.bicepparam --stdout > /dev/null
+      - name: Lint scripts
+        run: shellcheck scripts/*.sh
+
+  what-if:
+    # Fork PRs never get Azure credentials.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Preview Azure changes
+        run: scripts/deploy.sh --what-if
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: validate
+    runs-on: ubuntu-latest
+    # The production environment only admits the main branch.
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Deploy
+        run: scripts/deploy.sh
+      - name: Smoke test
+        run: |
+          fqdn="$(az containerapp show -g hackathon-platform-affine -n ca-affine \
+            --query properties.configuration.ingress.fqdn -o tsv)"
+          expected="$(sed -n "s/^param affineImageTag = '\(.*\)'/\1/p" infra/main.bicepparam)"
+          info="$(curl -fsS --retry 10 --retry-delay 15 --retry-all-errors "https://$fqdn/info")"
+          echo "$info"
+          actual="$(jq -r .compatibility <<<"$info")"
+          if [[ "$actual" != "$expected" ]]; then
+            echo "::error::Expected AFFiNE $expected, got $actual"
+            exit 1
+          fi
+          echo "### AFFiNE $actual is live at https://$fqdn" >> "$GITHUB_STEP_SUMMARY"
