@@ -64,6 +64,23 @@ Re-running with unchanged inputs is safe. Existing secrets are reused and Bicep 
 1. Open `https://<app-url>/admin`. The first visit shows the setup wizard.
 2. Create the administrator and store the credentials in the team's password manager.
 3. Self-registration is already disabled by `config.json` (`auth.allowSignup: false`). Add users from **Admin → Accounts**, or invite them to a workspace.
+4. The setup wizard does **not** send a verification email. To verify the admin address, go to **Settings → Account → Verify email**.
+
+### Email troubleshooting
+
+- Mail is queued in the `mail_deliveries` table. A worker drains the queue every minute and logs `[MailSender] Mail [<name>] sent successfully.` (debug) or `Failed to send mail` (error). If neither line appears, no email was requested.
+- Mail comes from `DoNotReply@<guid>.azurecomm.net`. Microsoft 365 recipients should check **Junk** and **Quarantine** (security.microsoft.com → Quarantine) if nothing arrives.
+- To test the SMTP login without sending anything:
+
+  ```bash
+  RG=hackathon-platform-affine
+  KV=$(az keyvault list -g $RG --query '[0].name' -o tsv)
+  SMTPU=$(az containerapp show -g $RG -n ca-affine --query "properties.template.containers[?name=='affine'].env[] | [?name=='MAILER_USER'].value | [0]" -o tsv)
+  SMTP_PW=$(az keyvault secret show --vault-name $KV -n acs-smtp-client-secret --query value -o tsv) SMTP_USER=$SMTPU \
+    python3 -c 'import os,smtplib; s=smtplib.SMTP("smtp.azurecomm.net",587); s.starttls(); print(s.login(os.environ["SMTP_USER"],os.environ["SMTP_PW"]))'
+  ```
+
+  A working login prints `235 Authentication successful`. A `535` means the secret expired or the role assignment is missing (see [SMTP secret rotation](#smtp-secret-rotation)).
 
 ## CI/CD (GitHub Actions)
 

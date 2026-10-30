@@ -76,7 +76,7 @@
 
 - [x] 7.1 Run `scripts/deploy.sh --what-if`, then `scripts/deploy.sh`, against the empty RG `hackathon-platform-affine`. Verify that the deployment succeeds and the printed URL returns the AFFiNE web app over HTTPS with a valid certificate.
 - [x] 7.2 Check in Log Analytics (`ContainerAppConsoleLogs_CL`) that the migration output ("running prisma migrations", "running data migrations") was logged before the server started. Verify that a saved KQL query in the runbook returns these lines.
-- [ ] 7.3 Open `/admin`, create the administrator account, and store its credentials in the team's password manager. Verify that a second visit to the setup flow does not offer admin creation.
+- [x] 7.3 Open `/admin`, create the administrator account, and store its credentials in the team's password manager. Verify that a second visit to the setup flow does not offer admin creation.
 - [ ] 7.4 Send a test email from AFFiNE (for example a password reset for the admin account) using the Azure-managed sender. Verify that it arrives in an MMK inbox and in one external inbox (for example a personal Gmail address).
 - [x] 7.5 Re-run `scripts/deploy.sh` with unchanged inputs. Verify that `what-if` reports no changes (or only no-op changes) and that the app keeps the same revision.
 
