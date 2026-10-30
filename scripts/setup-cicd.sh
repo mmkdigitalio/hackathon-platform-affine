@@ -9,6 +9,7 @@ GITHUB_REPO="mmkdigitalio/hackathon-platform-affine"
 DEPLOY_APP_NAME="affine-github-deploy"
 SMTP_APP_NAME="affine-acs-smtp"
 ENVIRONMENT="production"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Roles the templates assign; the pipeline may grant only these (design D13).
 KV_SECRETS_OFFICER="b86a8fe4-44ce-4948-aee5-eccb2c155cd7"
@@ -100,6 +101,15 @@ if ! has_role "Role Based Access Control Administrator"; then
     --condition "$condition" --condition-version "2.0" -o none
 fi
 
+# --- Key Vault access for the pipeline ---
+# Same template and parameters CI uses, so the role assignment name matches what CI later re-applies.
+log "Granting the pipeline Key Vault Secrets Officer via infra/bootstrap.bicep"
+owner="${AFFINE_OWNER:-$(az ad signed-in-user show --query userPrincipalName -o tsv)}"
+az deployment group create -g "$RESOURCE_GROUP" -n affine-bootstrap -o none \
+  -f "$REPO_ROOT/infra/bootstrap.bicep" \
+  --parameters owner="$owner" deployerPrincipalId="$sp_id" deployerPrincipalType=ServicePrincipal \
+  location="$(az group show -n "$RESOURCE_GROUP" --query location -o tsv)"
+
 # --- GitHub environment: deployments only from main ---
 log "Configuring GitHub environment '$ENVIRONMENT' (main only)"
 gh api -X PUT "repos/$GITHUB_REPO/environments/$ENVIRONMENT" --silent --input - <<EOF
@@ -113,7 +123,6 @@ fi
 
 # --- Repository variables (identifiers only, no secrets) ---
 log "Setting repository variables"
-owner="${AFFINE_OWNER:-$(az ad signed-in-user show --query userPrincipalName -o tsv)}"
 set_var() { gh variable set "$1" --repo "$GITHUB_REPO" --body "$2"; }
 set_var AZURE_CLIENT_ID "$app_id"
 set_var AZURE_TENANT_ID "$tenant_id"

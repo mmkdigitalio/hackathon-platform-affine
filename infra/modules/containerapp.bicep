@@ -111,19 +111,8 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
               mountPath: '/root/.affine/config'
             }
           ]
+          // Same order Azure returns them (Liveness, Readiness, Startup) to keep what-if clean.
           probes: [
-            {
-              // Container Apps caps failureThreshold at 10: 15 s + 10 x 30 s ~ 5 min for migrations.
-              type: 'Startup'
-              httpGet: {
-                path: '/info'
-                port: 3010
-              }
-              initialDelaySeconds: 15
-              periodSeconds: 30
-              timeoutSeconds: 5
-              failureThreshold: 10
-            }
             {
               type: 'Liveness'
               httpGet: {
@@ -143,6 +132,18 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
               periodSeconds: 10
               timeoutSeconds: 5
               failureThreshold: 3
+            }
+            {
+              // Container Apps caps failureThreshold at 10: 15 s + 10 x 30 s ~ 5 min for migrations.
+              type: 'Startup'
+              httpGet: {
+                path: '/info'
+                port: 3010
+              }
+              initialDelaySeconds: 15
+              periodSeconds: 30
+              timeoutSeconds: 5
+              failureThreshold: 10
             }
           ]
         }

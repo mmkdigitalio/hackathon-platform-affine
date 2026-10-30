@@ -27,6 +27,12 @@ Options:
 Environment:
   AFFINE_OWNER          Value of the 'owner' tag (default: your UPN).
   AFFINE_OPERATOR_IPS   Comma-separated IPv4s allowed to reach Postgres directly.
+
+  Set by CI (GitHub Actions), where no Microsoft Graph access is available:
+  AFFINE_DEPLOYER_PRINCIPAL_ID    Object ID of the identity running the deployment.
+  AFFINE_DEPLOYER_PRINCIPAL_TYPE  'User' (default) or 'ServicePrincipal'.
+  AFFINE_SMTP_CLIENT_ID           App ID of '$SMTP_APP_NAME'.
+  AFFINE_SMTP_PRINCIPAL_ID        Service principal object ID of '$SMTP_APP_NAME'.
 EOF
 }
 
@@ -66,8 +72,12 @@ current_sub="$(az account show --query name -o tsv 2>/dev/null)" ||
 [[ "$current_sub" == "$EXPECTED_SUBSCRIPTION" ]] ||
   die "Active subscription is '$current_sub', expected '$EXPECTED_SUBSCRIPTION'. Run: az account set --subscription \"$EXPECTED_SUBSCRIPTION\""
 
-deployer_id="$(az ad signed-in-user show --query id -o tsv)"
+# In CI the identity is a service principal without Graph access, so IDs come from the environment.
+deployer_type="${AFFINE_DEPLOYER_PRINCIPAL_TYPE:-User}"
+deployer_id="${AFFINE_DEPLOYER_PRINCIPAL_ID:-$(az ad signed-in-user show --query id -o tsv)}"
 export AFFINE_OWNER="${AFFINE_OWNER:-$(az ad signed-in-user show --query userPrincipalName -o tsv)}"
+ci_mode=false
+[[ "$deployer_type" == ServicePrincipal ]] && ci_mode=true
 log "Subscription: $current_sub | owner tag: $AFFINE_OWNER"
 
 # --- 2. Resource group ---
@@ -84,7 +94,8 @@ if ! $WHAT_IF; then
 fi
 
 # --- 3. Stage 1: Key Vault + storage ---
-bootstrap_params=(--parameters owner="$AFFINE_OWNER" deployerPrincipalId="$deployer_id" location="$LOCATION")
+bootstrap_params=(--parameters owner="$AFFINE_OWNER" deployerPrincipalId="$deployer_id"
+  deployerPrincipalType="$deployer_type" location="$LOCATION")
 if $WHAT_IF; then
   log "What-if: bootstrap (Key Vault, storage)"
   az deployment group what-if -g "$RESOURCE_GROUP" -n affine-bootstrap \
@@ -122,7 +133,17 @@ put_secret() {
 existing_secrets="$(retry secret_names)"
 has_secret() { grep -qx "$1" <<<"$existing_secrets"; }
 
-smtp_app_id="$(az ad app list --display-name "$SMTP_APP_NAME" --query '[0].appId' -o tsv)"
+if $ci_mode; then
+  smtp_app_id="${AFFINE_SMTP_CLIENT_ID:-}"
+  smtp_sp_id="${AFFINE_SMTP_PRINCIPAL_ID:-}"
+  [[ -n "$smtp_app_id" && -n "$smtp_sp_id" ]] ||
+    die "AFFINE_SMTP_CLIENT_ID / AFFINE_SMTP_PRINCIPAL_ID not set; run scripts/setup-cicd.sh."
+  has_secret acs-smtp-client-secret ||
+    die "Key Vault secret 'acs-smtp-client-secret' missing; run scripts/deploy.sh locally once (needs Graph)."
+  $ROTATE_SMTP && die "--rotate-smtp-secret needs Microsoft Graph; run it locally."
+else
+  smtp_app_id="$(az ad app list --display-name "$SMTP_APP_NAME" --query '[0].appId' -o tsv)"
+fi
 
 if ! $WHAT_IF; then
   if ! has_secret postgres-admin-password; then
@@ -130,19 +151,21 @@ if ! $WHAT_IF; then
     put_secret postgres-admin-password "$(openssl rand -hex 32)"
   fi
 
-  if [[ -z "$smtp_app_id" ]]; then
+  if [[ -z "$smtp_app_id" ]] && ! $ci_mode; then
     log "Creating app registration '$SMTP_APP_NAME' (ACS SMTP login)"
     smtp_app_id="$(az ad app create --display-name "$SMTP_APP_NAME" --sign-in-audience AzureADMyOrg --query appId -o tsv)"
   fi
 fi
 
 [[ -n "$smtp_app_id" ]] || die "App registration '$SMTP_APP_NAME' not found; run without --what-if first."
-smtp_sp_id="$(az ad sp show --id "$smtp_app_id" --query id -o tsv 2>/dev/null || true)"
-if [[ -z "$smtp_sp_id" ]] && ! $WHAT_IF; then
-  smtp_sp_id="$(az ad sp create --id "$smtp_app_id" --query id -o tsv)"
+if ! $ci_mode; then
+  smtp_sp_id="$(az ad sp show --id "$smtp_app_id" --query id -o tsv 2>/dev/null || true)"
+  if [[ -z "$smtp_sp_id" ]] && ! $WHAT_IF; then
+    smtp_sp_id="$(az ad sp create --id "$smtp_app_id" --query id -o tsv)"
+  fi
 fi
 
-if ! $WHAT_IF && { $ROTATE_SMTP || ! has_secret acs-smtp-client-secret; }; then
+if ! $WHAT_IF && ! $ci_mode && { $ROTATE_SMTP || ! has_secret acs-smtp-client-secret; }; then
   log "Issuing ACS SMTP client secret (1 year) into Key Vault"
   # Replaces all existing credentials of this dedicated app registration.
   put_secret acs-smtp-client-secret \
