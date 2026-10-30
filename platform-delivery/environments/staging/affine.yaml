@@ -1,0 +1,17 @@
+# Vorschlag für platform/environments/staging/affine.yaml (legt Strang B an). Image und Chart-Version
+# setzt danach platform-package.yml bzw. app-update-desired-state.yml.
+schemaVersion: "0.1"
+upstreamRelease: v0.27.4
+image: ghcr.io/toeverything/affine@sha256:b649f5ce2384ffdf13c23bccf81d759e15973d59d0b0058af65d895a84373099
+chart:
+  version: 0.1.0
+sizes:
+  replicas: 1
+  resources:
+    requests: { cpu: 250m, memory: 1Gi }
+    limits: { memory: 2Gi }
+  volumeSize: 10Gi
+values:
+  affine:
+    # Heap unter dem Speicherlimit halten; Fehlerszenario L11 setzt diesen Wert auf 16
+    nodeOptions: --max-old-space-size=1536

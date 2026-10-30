@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-config
+  labels:
+    {{- include "affine.labels" . | nindent 4 }}
+data:
+  config.json: |
+    {{- include "affine.config" . | nindent 4 }}

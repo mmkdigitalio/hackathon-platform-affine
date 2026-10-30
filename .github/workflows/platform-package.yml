@@ -1,0 +1,204 @@
+# Platform package for mmkdigitalio/hackathon-platform-team (platform/operations/apps/affine/LIEFERANFORDERUNGEN.md):
+# checks chart, smoke test and catalog entry on every PR, tests them end to end in kind, and on main
+# publishes the chart and smoke image to GHCR and opens the handoff PR in the platform repository.
+name: platform-package
+
+on:
+  pull_request:
+    branches: [main]
+    paths: &paths
+      - charts/**
+      - smoke/**
+      - runbook/**
+      - platform-delivery/**
+      - test/e2e-kind.sh
+      - .github/workflows/platform-package.yml
+  push:
+    branches: [main]
+    paths: *paths
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: platform-package-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  PLATFORM_REPO: mmkdigitalio/hackathon-platform-team
+  CHART_OCI: oci://ghcr.io/mmkdigitalio/charts
+  SMOKE_IMAGE: ghcr.io/mmkdigitalio/affine-smoke
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ env.PLATFORM_REPO }}
+          path: .platform
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: v3.18.4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - name: Chart (values contract, schema, fault value)
+        run: |
+          values=$(mktemp)
+          yq '.values' platform-delivery/environments/staging/affine.yaml > "$values"
+          platform='--set platform.persistentVolumeClaim=affine-data --set platform.replicas=1 --set rolloutMarker=ci --set imagePullSecretName=acr-pull'
+          helm lint charts/affine -f "$values"
+          # shellcheck disable=SC2086
+          helm template affine charts/affine -n affine-staging -f "$values" $platform > /dev/null
+          path=$(yq -r '.path | join(".")' platform-delivery/fault-invalid-config.yaml)
+          value=$(yq -r '.value' platform-delivery/fault-invalid-config.yaml)
+          # L11: the fault value must pass the chart schema
+          # shellcheck disable=SC2086
+          helm template affine charts/affine -f "$values" $platform --set-string "$path=$value" > /dev/null
+      - name: Smoke test and scripts
+        run: |
+          node --check smoke/smoke.mjs
+          shellcheck test/e2e-kind.sh
+      - name: Catalog entry and desired state (platform validator)
+        working-directory: .platform/platform/schemas/app-catalog
+        run: |
+          npm ci --no-audit --no-fund
+          # A's conventions may not be on main yet; fall back to the validator's fixtures
+          args=()
+          [[ -f ../../schemas/conventions/conventions.json ]] || args+=(--conventions test/fixtures/conventions.json)
+          [[ -f ../../schemas/foundation-outputs/foundation-outputs.schema.json ]] ||
+            args+=(--foundation-outputs test/fixtures/foundation-outputs.schema.json)
+          npx tsx src/cli.ts validate --tree "$GITHUB_WORKSPACE/platform-delivery" "${args[@]}"
+
+  e2e:
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: v3.18.4
+      - uses: helm/kind-action@1544676c07bb3570fcb70166beaa07c4528fd4aa # v1.15.1
+        with:
+          install_only: true
+      - name: Chart and smoke test in kind (first run, persistence, fault value)
+        run: test/e2e-kind.sh --fault
+
+  publish:
+    needs: e2e
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      smoke-digest: ${{ steps.smoke.outputs.digest }}
+      chart-version: ${{ steps.chart.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Smoke image
+        id: smoke
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: smoke
+          push: true
+          tags: ${{ env.SMOKE_IMAGE }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: v3.18.4
+      - name: Chart
+        id: chart
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          base=$(yq -r '.version' charts/affine/Chart.yaml)
+          version="${base%.*}.${GITHUB_RUN_NUMBER}"
+          helm package charts/affine --version "$version" -d dist
+          echo "$GH_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          helm push "dist/affine-${version}.tgz" "$CHART_OCI"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          {
+            echo "### AFFiNE platform package"
+            echo "- Chart: \`$CHART_OCI/affine\` version \`$version\`"
+            echo "- Smoke image: \`$SMOKE_IMAGE@${{ steps.smoke.outputs.digest }}\`"
+            echo "- Runbook commit: \`$GITHUB_SHA\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  handoff:
+    # Opens/updates the PR in the platform repository. Needs a token with contents and
+    # pull-requests write access there; without it the step summary of publish is the handoff.
+    needs: publish
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.PLATFORM_REPO_TOKEN }}
+    steps:
+      - name: Token present?
+        id: token
+        run: |
+          if [[ -n "$GH_TOKEN" ]]; then echo "ok=true" >> "$GITHUB_OUTPUT"; else
+            echo "::notice::PLATFORM_REPO_TOKEN not set; hand over manually (see publish summary)"; fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.token.outputs.ok
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.token.outputs.ok
+        with:
+          repository: ${{ env.PLATFORM_REPO }}
+          token: ${{ secrets.PLATFORM_REPO_TOKEN }}
+          path: .platform
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.token.outputs.ok
+        with:
+          node-version: 22
+      - name: Catalog entry and desired state
+        if: steps.token.outputs.ok
+        env:
+          SMOKE_DIGEST: ${{ needs.publish.outputs.smoke-digest }}
+          CHART_VERSION: ${{ needs.publish.outputs.chart-version }}
+        run: |
+          catalog=.platform/platform/catalog/affine/app.yaml
+          desired=.platform/platform/environments/staging/affine.yaml
+          mkdir -p "$(dirname "$catalog")"
+          # Catalog: ours, with the published smoke digest and the runbook at this commit
+          SMOKE="$SMOKE_IMAGE@$SMOKE_DIGEST" yq '.smokeTest.image = strenv(SMOKE) | .runbook.commit = strenv(GITHUB_SHA)' \
+            platform-delivery/catalog/affine/app.yaml > "$catalog"
+          image=$(yq -r '.image' platform-delivery/environments/staging/affine.yaml)
+          if [[ -f "$desired" ]]; then
+            # B owns the file; only image and chart version move (same as app-update-desired-state.yml)
+            (cd .platform/platform/schemas/app-catalog && npm ci --no-audit --no-fund &&
+              npx tsx src/cli.ts set-desired --app affine --env staging --image "$image" --chart-version "$CHART_VERSION")
+          else
+            CHART_VERSION="$CHART_VERSION" yq '.chart.version = strenv(CHART_VERSION)' \
+              platform-delivery/environments/staging/affine.yaml > "$desired"
+          fi
+      - name: Pull request
+        if: steps.token.outputs.ok
+        working-directory: .platform
+        run: |
+          git add platform/catalog/affine platform/environments/staging/affine.yaml
+          if git diff --cached --quiet; then echo "Platform repository already up to date."; exit 0; fi
+          catalog_changed=$(git diff --cached --quiet -- platform/catalog/affine || echo true)
+          branch="affine/package-${GITHUB_SHA:0:12}"
+          title="affine: Paket ${GITHUB_SHA:0:12} (Chart ${{ needs.publish.outputs.chart-version }})"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git commit -q -m "$title" -m "Quelle: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$GITHUB_SHA"
+          git push -q --force-with-lease origin "$branch"
+          url=$(gh pr create --base main --head "$branch" --title "$title" \
+            --body "Automatisch aus $GITHUB_REPOSITORY ($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID).")
+          # Only image/chart moves merge on their own; catalog changes get a human review
+          if [[ -z "$catalog_changed" ]]; then gh pr merge "$url" --auto --squash; fi
+          echo "Pull request: $url" >> "$GITHUB_STEP_SUMMARY"

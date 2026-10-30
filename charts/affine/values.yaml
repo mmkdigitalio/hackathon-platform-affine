@@ -1,0 +1,25 @@
+# image.repository, image.digest, secretName, imagePullSecretName, rolloutMarker and platform are set
+# by the platform's app path (hackathon-platform-team: platform/schemas/app-catalog/README.md).
+# The defaults below only make `helm template` and local tests work.
+image:
+  repository: ghcr.io/toeverything/affine
+  digest: sha256:b649f5ce2384ffdf13c23bccf81d759e15973d59d0b0058af65d895a84373099
+  pullPolicy: IfNotPresent
+
+# Secret with DATABASE_URL, REDIS_SERVER_HOST and REDIS_SERVER_PASSWORD, loaded via envFrom
+secretName: affine-platform
+imagePullSecretName: ""
+
+platform:
+  url: ""
+  host: ""
+  # Holds blobs (storage/) and the server's private key (config/); empty uses an emptyDir (tests only)
+  persistentVolumeClaim: ""
+  replicas: 1
+  resources: {}
+
+affine:
+  # NODE_OPTIONS for the server container only (not for migrations), e.g. --max-old-space-size=1536
+  nodeOptions: ""
+  # Deep-merged over the defaults in templates/configmap.yaml and written to config.json
+  config: {}

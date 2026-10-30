@@ -2,6 +2,8 @@
 
 This runbook covers operating the self-hosted AFFiNE instance in subscription **MMK DIGITAL - Hackathon 2026**, resource group **`hackathon-platform-affine`**. The design and requirements are in [`openspec/changes/host-affine-on-azure/`](../openspec/changes/host-affine-on-azure/).
 
+> AFFiNE on the shared MMK platform (AKS, operated by the operations agent) is a separate deployment with its own runbook: [`runbook/README.md`](../runbook/README.md). The package for it lives in `charts/`, `smoke/` and `platform-delivery/` ([`openspec/changes/deliver-affine-to-mmk-platform/`](../openspec/changes/deliver-affine-to-mmk-platform/)).
+
 ## Subscription constraints
 
 Recorded during preflight on 2026-10-30:

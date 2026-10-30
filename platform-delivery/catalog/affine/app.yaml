@@ -1,0 +1,49 @@
+# Katalogeintrag AFFiNE (Lieferung L1) für mmkdigitalio/hackathon-platform-team: platform/catalog/affine/app.yaml.
+# Quelle: mmkdigitalio/hackathon-platform-affine, platform-delivery/. Die Platzhalter (Smoke-Image-Digest,
+# Runbook-Commit) setzt .github/workflows/platform-package.yml beim Übergabe-PR.
+schemaVersion: "0.1"
+appId: affine
+description: AFFiNE (Wissensdatenbank und Whiteboard), unverändertes Upstream-Release
+source:
+  repository: mmkdigitalio/hackathon-platform-affine
+  upstream: toeverything/AFFiNE
+chart:
+  # L2: öffentlich lesbar, Version 0.1.<Lauf> aus platform-package.yml
+  oci:
+    url: oci://ghcr.io/mmkdigitalio/charts/affine
+ingress:
+  service: affine
+  port: 3010
+dataBlocks:
+  - postgres-database
+  - redis
+  - persistent-volume
+generatedSecrets:
+  - smoke-user-password
+secrets:
+  DATABASE_URL: app:postgres-url
+  REDIS_SERVER_HOST: app:redis-host
+  REDIS_SERVER_PASSWORD: app:redis-password
+# L6: liefert ohne Anmeldung 200, sobald der Server Anfragen annimmt
+availability:
+  path: /info
+smokeTest:
+  # L7/L12: öffentlich von ghcr.io gezogen (kein acr:), Digest aus platform-package.yml
+  image: ghcr.io/mmkdigitalio/affine-smoke@sha256:0000000000000000000000000000000000000000000000000000000000000000
+  env:
+    SMOKE_USER_EMAIL: smoke@affine.invalid
+  secrets:
+    # AFFiNE erlaubt höchstens 32 Zeichen; der Smoke-Test nutzt die ersten 32 des generierten Werts
+    SMOKE_USER_PASSWORD: app:smoke-user-password
+runbook:
+  repository: mmkdigitalio/hackathon-platform-affine
+  path: runbook/README.md
+  commit: "0000000000000000000000000000000000000000"
+allowedActions:
+  - restart
+  - redeploy
+# L10
+dataProcedures:
+  migration: Upstream-Migrationen (Prisma und Datenmigrationen) laufen bei jedem Pod-Start im Init-Container migrate; vor jedem Versionswechsel Release Notes laut Runbook prüfen, kein Downgrade über Migrationen hinweg
+  backup: Datenbank affine über die Sicherung des Foundation-PostgreSQL-Servers (7 Tage PITR); Anhänge und private.key auf dem PVC affine-data ohne Sicherung (Staging-Risiko)
+  restore: nur manuell durch Menschen laut Runbook (Point-in-Time-Restore der Datenbank); keine autonome Wiederherstellung, Anhänge nicht wiederherstellbar

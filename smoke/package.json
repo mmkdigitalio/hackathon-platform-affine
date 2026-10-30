@@ -1,0 +1,17 @@
+{
+  "name": "affine-smoke",
+  "private": true,
+  "description": "AFFiNE smoke test for the MMK platform (smoke-test contract v0.1)",
+  "type": "module",
+  "main": "smoke.mjs",
+  "scripts": {
+    "start": "node smoke.mjs"
+  },
+  "dependencies": {
+    "socket.io-client": "4.8.1",
+    "yjs": "13.6.21"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

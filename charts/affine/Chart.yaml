@@ -1,0 +1,11 @@
+apiVersion: v2
+name: affine
+description: Unmodified upstream AFFiNE server for the MMK platform app path (values contract v0.1).
+type: application
+# Published as <major>.<minor>.<run number> by .github/workflows/platform-package.yml
+version: 0.1.0
+# Upstream release the chart is tested with; the running image comes from the desired state (image.digest).
+appVersion: "0.27.4"
+home: https://github.com/mmkdigitalio/hackathon-platform-affine
+sources:
+  - https://github.com/toeverything/AFFiNE
