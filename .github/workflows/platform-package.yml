@@ -1,6 +1,7 @@
 # Platform package for mmkdigitalio/hackathon-platform-team (platform/operations/apps/affine/LIEFERANFORDERUNGEN.md):
-# checks chart, smoke test and catalog entry on every PR, tests them end to end in kind, and on main
-# creates a release that the platform's app-affine-sync.yml builds into the Foundation ACR and rolls out.
+# checks chart, smoke test and catalog entry on every PR and push, and tests them end to end in kind.
+# A successful run on main is the handoff: the platform's app-affine-sync.yml picks the newest one (public
+# Actions API, no token), builds chart 0.1.<run number> and the smoke image into the Foundation ACR and rolls out.
 name: platform-package
 
 on:
@@ -85,32 +86,3 @@ jobs:
           install_only: true
       - name: Chart and smoke test in kind (first run, persistence, fault value)
         run: test/e2e-kind.sh --fault
-
-  release:
-    # Marks this commit as a tested package. hackathon-platform-team's app-affine-sync.yml reads the latest
-    # release (repo is public, no token), builds chart and smoke image from this commit into the Foundation
-    # ACR (org GHCR packages must stay private), commits catalog entry and desired state to its main and
-    # starts app-deploy.yml.
-    needs: e2e
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          base=$(yq -r '.version' charts/affine/Chart.yaml)
-          version="${base%.*}.${GITHUB_RUN_NUMBER}"
-          jq -n --arg sha "$GITHUB_SHA" --arg chart "$version" \
-            '{sourceSha: $sha, chartVersion: $chart}' > platform-release.json
-          gh release create "package-$version" platform-release.json --target "$GITHUB_SHA" --latest \
-            --title "Platform package $version" \
-            --notes "Tested package at \`$GITHUB_SHA\`: chart version \`$version\`. Published to the Foundation ACR by app-affine-sync.yml in $PLATFORM_REPO."
-          {
-            echo "### AFFiNE platform package $version"
-            echo "- Release \`package-$version\` for \`$GITHUB_SHA\`"
-            echo "- Picked up by \`app-affine-sync.yml\` in $PLATFORM_REPO (every 15 min or manual)"
-          } >> "$GITHUB_STEP_SUMMARY"

@@ -93,7 +93,7 @@ Der Smoke-Test meldet sich als `smoke@affine.invalid` an. Das Passwort sind die 
 
 1. Im Repository `hackathon-platform-affine` auf `main` `image` in `platform-delivery/environments/staging/affine.yaml` (Digest des neuen Upstream-Releases) und `appVersion` in `charts/affine/Chart.yaml` anheben.
 2. `platform-package.yml` testet Chart, Migrationen und Smoke-Test in kind, einschließlich Persistenz und Fehlerwert.
-3. Nur wenn beides grün ist, veröffentlicht der Workflow Chart und Smoke-Image und legt ein Release an. `app-affine-sync.yml` im Plattform-Repository übernimmt es innerhalb von 15 Minuten validiert auf `main` und startet `app-deploy.yml`.
+3. Ist der Lauf auf `main` grün, übernimmt `app-affine-sync.yml` im Plattform-Repository ihn innerhalb von 15 Minuten. Der Workflow baut Chart `0.1.<Laufnummer>` und Smoke-Image in die Foundation-ACR, committet Katalog und Sollzustand validiert auf `main` und startet `app-deploy.yml`.
 4. Vorher den Zeitpunkt notieren (Ziel für einen Point-in-Time-Restore).
 
 Lokal prüfen: `test/e2e-kind.sh --fault` (Docker, kind, kubectl, helm, Python mit PyYAML).

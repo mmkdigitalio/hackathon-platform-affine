@@ -9,7 +9,7 @@ npx tsx src/cli.ts validate --tree <pfad>/hackathon-platform-affine/platform-del
 
 | Nr. | Lieferung | Wo |
 | --- | --- | --- |
-| L1 | Katalogeintrag | [`catalog/affine/app.yaml`](catalog/affine/app.yaml); [`platform-package.yml`](../.github/workflows/platform-package.yml) legt je Paket ein Release an, `app-affine-sync.yml` im Plattform-Repository übernimmt es auf `main` |
+| L1 | Katalogeintrag | [`catalog/affine/app.yaml`](catalog/affine/app.yaml); [`platform-package.yml`](../.github/workflows/platform-package.yml) testet ihn; den neuesten grünen Lauf auf `main` übernimmt `app-affine-sync.yml` im Plattform-Repository |
 | L2 | Chart | [`charts/affine`](../charts/affine), in der Foundation-ACR als `oci://<acr>/helm/affine` (Katalog `acr: helm/affine`), Version `0.1.<Lauf>`; Image unverändert `ghcr.io/toeverything/affine` |
 | L3 | Werte-Vertrag | `image.repository`/`image.digest`, `imagePullSecretName`, `secretName` per `envFrom`, `platform.persistentVolumeClaim`, `platform.replicas`, `platform.resources`, `platform.url`/`host`. Chart legt nur Deployment, Service und ConfigMap an |
 | L4 | Deployment | `affine`, `Recreate`, Label `app.kubernetes.io/instance: affine`, Service `affine:3010` |
@@ -17,7 +17,7 @@ npx tsx src/cli.ts validate --tree <pfad>/hackathon-platform-affine/platform-del
 | L6 | Verfügbarkeitspfad | `/info` (200 ohne Anmeldung) |
 | L7 | Smoke-Test-Image | [`smoke/`](../smoke), `acr:affine-smoke@sha256:…`; prüft Anmeldung, Dokument (lesen und schreiben) und Anhang |
 | L8 | Persistenznachweis | Testdokument `mmk-smoke-persistence` mit Anhang `mmk-smoke-attachment.txt` im Arbeitsbereich „MMK Smoke“; `evidence` nennt `workspace/<id>/doc/…` und `workspace/<id>/blob/…` |
-| L9 | Runbook | [`runbook/README.md`](../runbook/README.md); `runbook.commit` ist der veröffentlichende Commit (aus dem Release) |
+| L9 | Runbook | [`runbook/README.md`](../runbook/README.md); `runbook.commit` ist der Commit des übernommenen grünen Laufs |
 | L10 | Datenverfahren | `dataProcedures` im Katalogeintrag |
 | L11 | Fehlerwert | [`fault-invalid-config.yaml`](fault-invalid-config.yaml): `affine.nodeOptions = --max-old-space-size=16` |
 | L12 | Smoke-Image-Herkunft | Foundation-ACR (`acr:`); GHCR-Pakete der Organisation dürfen nicht öffentlich sein |

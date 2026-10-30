@@ -34,7 +34,7 @@
   - After the revert, the fixture is found again.
 - [x] 5.2 Merge `platform-package.yml`. Verify that the PR runs `check` and `e2e` and that `main` runs `publish`.
 - [x] 5.3 Hand the first release over by hand: commit the catalog entry (smoke digest `sha256:550ca3d0…`, runbook `3beac9a`), the staging desired state (chart `0.1.2`) and the fault value to platform `main` (`9cef41e`). Verify that the platform validator passes and that `app-deploy.yml` selects `affine/staging` as its target.
-- [x] 5.4 Replace the token-based handoff with a release (`platform-release.json`) plus the platform's `app-affine-sync.yml`, which uses `GITHUB_TOKEN` and dispatches `app-deploy.yml`. Verify that a sync run applies the latest release to platform `main`.
+- [ ] 5.4 Replace the token-based handoff with the platform's `app-affine-sync.yml`. It reads the newest green `platform-package` run (public API), builds into the ACR, pushes with `GITHUB_TOKEN`, and dispatches `app-deploy.yml`. Releases were dropped because the workflow token gets 403 on `POST /releases` despite `contents: write` (likely an org cap). Verify that a sync run commits to platform `main`.
 - [x] 5.5 Try public GHCR packages. Result: org policy only allows private packages, so artifacts were switched to the Foundation ACR (L2/L12 allow `acr:`).
 
 ## 6. Platform-side follow-ups (other strands)
