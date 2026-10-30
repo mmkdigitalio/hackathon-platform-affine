@@ -11,7 +11,7 @@ The MMK platform ([`mmkdigitalio/hackathon-platform-team`](https://github.com/mm
 - Add the platform runbook `runbook/README.md`: symptoms, diagnosis, the allowed actions `restart` and `redeploy`, and their limits.
 - Add `platform-delivery/`: the catalog entry, a proposed staging desired state, and the non-repairable fault value, laid out so the platform validator can check it with `--tree`.
 - Add `test/e2e-kind.sh`, which emulates the platform's app path in kind. It checks the first run, persistence across a restart, and the fault value.
-- Add `.github/workflows/platform-package.yml`. It checks and end-to-end tests the package on each PR. On `main` it publishes the chart and smoke image to GHCR and creates a release that the platform repository's `app-affine-sync.yml` applies to its `main`.
+- Add `.github/workflows/platform-package.yml`. It checks and end-to-end tests the package on each PR. On `main` it creates a release for the tested commit. The platform repository's `app-affine-sync.yml` builds chart and smoke image from that commit into the Foundation ACR, then applies catalog entry and desired state to its `main`.
 
 **Out of scope**: changes to the platform repository itself (catalog PR, ingress annotations, `azure.extensions`), production environment, and retiring the Azure Container Apps deployment from `host-affine-on-azure`. Both deployments can coexist; they share no resources.
 
@@ -26,5 +26,5 @@ The MMK platform ([`mmkdigitalio/hackathon-platform-team`](https://github.com/mm
 ## Impact
 
 - New directories `charts/`, `smoke/`, `runbook/`, `platform-delivery/`, a new workflow, and a new script. Nothing under `infra/` changes.
-- GHCR packages `ghcr.io/mmkdigitalio/charts/affine` and `ghcr.io/mmkdigitalio/affine-smoke`, which must be public.
+- Artifacts live in the Foundation ACR (`helm/affine`, `affine-smoke`). Org policy forbids public GHCR packages, so GHCR is not used.
 - Platform-side dependencies: WebSocket-capable ingress (no PostgreSQL extensions are required), and the repository secret `PLATFORM_REPO_TOKEN` for automated handoff.

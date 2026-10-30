@@ -1,6 +1,6 @@
 # Platform package for mmkdigitalio/hackathon-platform-team (platform/operations/apps/affine/LIEFERANFORDERUNGEN.md):
 # checks chart, smoke test and catalog entry on every PR, tests them end to end in kind, and on main
-# publishes the chart and smoke image to GHCR plus a release that the platform's app-affine-sync.yml picks up.
+# creates a release that the platform's app-affine-sync.yml builds into the Foundation ACR and rolls out.
 name: platform-package
 
 on:
@@ -27,8 +27,6 @@ concurrency:
 
 env:
   PLATFORM_REPO: mmkdigitalio/hackathon-platform-team
-  CHART_OCI: oci://ghcr.io/mmkdigitalio/charts
-  SMOKE_IMAGE: ghcr.io/mmkdigitalio/affine-smoke
 
 jobs:
   check:
@@ -88,64 +86,31 @@ jobs:
       - name: Chart and smoke test in kind (first run, persistence, fault value)
         run: test/e2e-kind.sh --fault
 
-  publish:
+  release:
+    # Marks this commit as a tested package. hackathon-platform-team's app-affine-sync.yml reads the latest
+    # release (repo is public, no token), builds chart and smoke image from this commit into the Foundation
+    # ACR (org GHCR packages must stay private), commits catalog entry and desired state to its main and
+    # starts app-deploy.yml.
     needs: e2e
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
-      contents: write # release with platform-release.json
-      packages: write
-    outputs:
-      smoke-digest: ${{ steps.smoke.outputs.digest }}
-      chart-version: ${{ steps.chart.outputs.version }}
+      contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Smoke image
-        id: smoke
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: smoke
-          push: true
-          tags: ${{ env.SMOKE_IMAGE }}:${{ github.sha }}
-          labels: |
-            org.opencontainers.image.source=https://github.com/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
-      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
-        with:
-          version: v3.18.4
-      - name: Chart
-        id: chart
+      - name: Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           base=$(yq -r '.version' charts/affine/Chart.yaml)
           version="${base%.*}.${GITHUB_RUN_NUMBER}"
-          helm package charts/affine --version "$version" -d dist
-          echo "$GH_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
-          helm push "dist/affine-${version}.tgz" "$CHART_OCI"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+          jq -n --arg sha "$GITHUB_SHA" --arg chart "$version" \
+            '{sourceSha: $sha, chartVersion: $chart}' > platform-release.json
+          gh release create "package-$version" platform-release.json --target "$GITHUB_SHA" --latest \
+            --title "Platform package $version" \
+            --notes "Tested package at \`$GITHUB_SHA\`: chart version \`$version\`. Published to the Foundation ACR by app-affine-sync.yml in $PLATFORM_REPO."
           {
-            echo "### AFFiNE platform package"
-            echo "- Chart: \`$CHART_OCI/affine\` version \`$version\`"
-            echo "- Smoke image: \`$SMOKE_IMAGE@${{ steps.smoke.outputs.digest }}\`"
-            echo "- Runbook commit: \`$GITHUB_SHA\`"
+            echo "### AFFiNE platform package $version"
+            echo "- Release \`package-$version\` for \`$GITHUB_SHA\`"
+            echo "- Picked up by \`app-affine-sync.yml\` in $PLATFORM_REPO (every 15 min or manual)"
           } >> "$GITHUB_STEP_SUMMARY"
-      - name: Release for the platform
-        # hackathon-platform-team's app-affine-sync.yml reads the latest release (no token needed, repo is
-        # public), writes catalog entry and desired state to its main and starts app-deploy.yml.
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.chart.outputs.version }}
-          SMOKE: ${{ env.SMOKE_IMAGE }}@${{ steps.smoke.outputs.digest }}
-        run: |
-          jq -n --arg sha "$GITHUB_SHA" --arg chart "$VERSION" --arg smoke "$SMOKE" \
-            '{sourceSha: $sha, chartVersion: $chart, smokeImage: $smoke}' > platform-release.json
-          gh release create "package-$VERSION" platform-release.json --target "$GITHUB_SHA" --latest \
-            --title "Platform package $VERSION" \
-            --notes "Chart \`$CHART_OCI/affine:$VERSION\`, smoke image \`$SMOKE\`, runbook at \`$GITHUB_SHA\`."

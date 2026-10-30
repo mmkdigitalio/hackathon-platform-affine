@@ -1,6 +1,6 @@
 # Katalogeintrag AFFiNE (Lieferung L1) für mmkdigitalio/hackathon-platform-team: platform/catalog/affine/app.yaml.
-# Quelle: mmkdigitalio/hackathon-platform-affine, platform-delivery/. Smoke-Image-Digest und Runbook-Commit
-# kommen aus dem Release von .github/workflows/platform-package.yml (übernommen durch app-affine-sync.yml).
+# Quelle: mmkdigitalio/hackathon-platform-affine, platform-delivery/. Smoke-Image-Digest und Runbook-Commit setzt
+# app-affine-sync.yml im Plattform-Repository aus dem Release von .github/workflows/platform-package.yml.
 schemaVersion: "0.1"
 appId: affine
 description: AFFiNE (Wissensdatenbank und Whiteboard), unverändertes Upstream-Release
@@ -8,9 +8,9 @@ source:
   repository: mmkdigitalio/hackathon-platform-affine
   upstream: toeverything/AFFiNE
 chart:
-  # L2: öffentlich lesbar, Version 0.1.<Lauf> aus platform-package.yml
-  oci:
-    url: oci://ghcr.io/mmkdigitalio/charts/affine
+  # L2: in der Foundation-ACR (oci://<acr>/helm/affine), Version 0.1.<Lauf>; gebaut von app-affine-sync.yml
+  acr:
+    repository: helm/affine
 ingress:
   service: affine
   port: 3010
@@ -28,8 +28,8 @@ secrets:
 availability:
   path: /info
 smokeTest:
-  # L7/L12: öffentlich von ghcr.io gezogen (kein acr:), Digest aus platform-package.yml
-  image: ghcr.io/mmkdigitalio/affine-smoke@sha256:0000000000000000000000000000000000000000000000000000000000000000
+  # L7/L12: aus der Foundation-ACR (acr:), Digest setzt app-affine-sync.yml
+  image: acr:affine-smoke@sha256:0000000000000000000000000000000000000000000000000000000000000000
   env:
     SMOKE_USER_EMAIL: smoke@affine.invalid
   secrets:
