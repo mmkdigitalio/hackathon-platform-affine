@@ -27,4 +27,4 @@ The MMK platform ([`mmkdigitalio/hackathon-platform-team`](https://github.com/mm
 
 - New directories `charts/`, `smoke/`, `runbook/`, `platform-delivery/`, a new workflow, and a new script. Nothing under `infra/` changes.
 - GHCR packages `ghcr.io/mmkdigitalio/charts/affine` and `ghcr.io/mmkdigitalio/affine-smoke`, which must be public.
-- Platform-side dependencies: `PGCRYPTO` in `azure.extensions` of the foundation server, WebSocket-capable ingress, and the repository secret `PLATFORM_REPO_TOKEN` for automated handoff.
+- Platform-side dependencies: WebSocket-capable ingress (no PostgreSQL extensions are required), and the repository secret `PLATFORM_REPO_TOKEN` for automated handoff.

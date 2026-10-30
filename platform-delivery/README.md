@@ -26,7 +26,7 @@ npx tsx src/cli.ts validate --tree <pfad>/hackathon-platform-affine/platform-del
 
 ## Abhängigkeiten auf Plattformseite
 
-- **`pgcrypto`**: AFFiNEs Migrationen führen `CREATE EXTENSION pgcrypto` als Login `affine` aus. Auf Azure Flexible Server muss `azure.extensions` des Foundation-Servers `PGCRYPTO` enthalten (Strang A). `vector` ist optional; ohne die Erweiterung überspringen die Migrationen die KI-Tabellen.
+- **PostgreSQL-Erweiterungen: keine nötig.** AFFiNE 0.27.4 versucht `pgcrypto` und `vector` anzulegen, fängt Fehler aber ab (nur `WARNING`). Ohne Erweiterungen laufen Migrationen, Server und Smoke-Test vollständig durch (geprüft mit einem Login ohne `CREATE`-Recht auf der Datenbank). `pgcrypto` hasht nur bereits vorhandene Zugriffstoken; `vector` dient nur den KI-Funktionen.
 - **Ingress**: WebSockets müssen durchgereicht werden (Dokumentänderungen laufen über Socket.IO). Für Anhänge über 1 MB braucht die Ingress-Regel ein höheres Body-Limit (Strang B).
 - **GHCR-Sichtbarkeit**: Chart- und Smoke-Paket nach dem ersten Veröffentlichen einmalig auf „public“ stellen (Organisations-Admin), sonst kann der Cluster sie nicht ziehen.
 - **Übergabe-Token**: Repository-Secret `PLATFORM_REPO_TOKEN` (Schreibrechte auf Inhalte und Pull Requests im Plattform-Repository); ohne es endet `platform-package.yml` mit der Zusammenfassung zum manuellen Übernehmen.

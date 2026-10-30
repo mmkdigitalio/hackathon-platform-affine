@@ -37,6 +37,6 @@
 
 ## 6. Platform-side follow-ups (other strands)
 
-- [ ] 6.1 Strand A: add `PGCRYPTO` to `azure.extensions` on the foundation server.
+- [x] 6.1 Check whether the foundation server needs extensions. Verify that with a login lacking `CREATE` on its database, migrations warn but succeed and both smoke runs pass (no `PGCRYPTO`/`VECTOR` allowlist needed).
 - [ ] 6.2 Strand B: create `platform/environments/staging/affine.yaml` from the proposal, and review the ingress body limit for attachments.
 - [ ] 6.3 Copy the fault value into `platform/operations/apps/affine/fault-invalid-config.yaml`, and update the handoff table in `LIEFERANFORDERUNGEN.md`.

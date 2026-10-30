@@ -112,7 +112,8 @@ spec:
   accessModes: [ReadWriteOnce]
   resources: { requests: { storage: 1Gi } }
 ---
-# Stand-in for the foundation server: the app login owns its database but is no superuser
+# Stand-in for the foundation server, stricter than it: the app login is no superuser and may not
+# create extensions (no CREATE on the database), so AFFiNE must run without pgcrypto and vector
 apiVersion: apps/v1
 kind: Deployment
 metadata: { name: e2e-postgres }
@@ -138,7 +139,8 @@ kind: ConfigMap
 metadata: { name: e2e-postgres-init }
 data:
   init.sh: |
-    psql -v ON_ERROR_STOP=1 -U postgres -c "CREATE ROLE affine LOGIN PASSWORD '\$APP_PASSWORD';" -c "CREATE DATABASE affine OWNER affine;"
+    psql -v ON_ERROR_STOP=1 -U postgres -c "CREATE ROLE affine LOGIN PASSWORD '\$APP_PASSWORD';" -c "CREATE DATABASE affine;"
+    psql -v ON_ERROR_STOP=1 -U postgres -d affine -c "GRANT CONNECT ON DATABASE affine TO affine;" -c "GRANT ALL ON SCHEMA public TO affine;"
 ---
 apiVersion: v1
 kind: Service

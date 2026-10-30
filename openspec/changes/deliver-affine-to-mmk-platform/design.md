@@ -35,7 +35,7 @@ The chart is published as `0.1.<run number>` to `oci://ghcr.io/mmkdigitalio/char
 
 ## Risks / Trade-offs
 
-- [`pgcrypto` not allowlisted on the foundation server] → migrations fail in `migrate`. The runbook names the symptom, and this was handed to strand A.
+- [Extensions not allowlisted on the foundation server] → no impact. AFFiNE 0.27.4 wraps `CREATE EXTENSION` for `pgcrypto` and `vector` in exception handlers and only logs a WARNING. Verified: with a login that may not create extensions, migrations, server start and both smoke runs pass. A future AFFiNE release could make an extension mandatory; the kind test would then fail before handoff only if its Postgres also lacks the extension, so it runs with a login that cannot create extensions.
 - [Ingress body limit of 1 MB] → larger uploads fail with 413. The smoke attachment is small, so this is not detected by the test. Handed to strand B.
 - [No backup of attachments and `private.key`] → accepted staging risk, documented in `dataProcedures`.
 - [Socket.IO protocol drift in future AFFiNE releases] → the kind end-to-end test runs the smoke test against every proposed version before handoff.
