@@ -18,7 +18,7 @@
   - A run after a restart finds it again.
   - A wrong password fails `login`.
   - A deleted blob fails `attachment`.
-- [ ] 3.2 Build the image into the Foundation ACR through `app-affine-sync.yml`. Verify that the catalog references `acr:affine-smoke@sha256:…` and that the smoke job pulls with `acr-pull`.
+- [x] 3.2 Build the image into the Foundation ACR through `app-affine-sync.yml`. Verify that the catalog references `acr:affine-smoke@sha256:…` and that the smoke job pulls with `acr-pull`. Done: the sync committed `d013b41`. The first green deploy (platform run 41077703734, chart 0.1.4) passed availability, login, document, document-write and attachment against `affine.57-153-7-126.sslip.io`. It first needed `ops-migrate` and the platform's `GRANT CREATE, USAGE ON SCHEMA public` (Azure Flexible Server: `public` is not owned by the database owner).
 
 ## 4. Delivery data
 
@@ -34,7 +34,7 @@
   - After the revert, the fixture is found again.
 - [x] 5.2 Merge `platform-package.yml`. Verify that the PR runs `check` and `e2e` and that `main` runs `publish`.
 - [x] 5.3 Hand the first release over by hand: commit the catalog entry (smoke digest `sha256:550ca3d0…`, runbook `3beac9a`), the staging desired state (chart `0.1.2`) and the fault value to platform `main` (`9cef41e`). Verify that the platform validator passes and that `app-deploy.yml` selects `affine/staging` as its target.
-- [ ] 5.4 Replace the token-based handoff with the platform's `app-affine-sync.yml`. It reads the newest green `platform-package` run (public API), builds into the ACR, pushes with `GITHUB_TOKEN`, and dispatches `app-deploy.yml`. Releases were dropped because the workflow token gets 403 on `POST /releases` despite `contents: write` (likely an org cap). Verify that a sync run commits to platform `main`.
+- [x] 5.4 Replace the token-based handoff with the platform's `app-affine-sync.yml`. It reads the newest green `platform-package` run (public API), builds into the ACR, pushes with `GITHUB_TOKEN`, and dispatches `app-deploy.yml`. Releases were dropped because the workflow token gets 403 on `POST /releases` despite `contents: write` (likely an org cap). Verify that a sync run commits to platform `main`.
 - [x] 5.5 Try public GHCR packages. Result: org policy only allows private packages, so artifacts were switched to the Foundation ACR (L2/L12 allow `acr:`).
 
 ## 6. Platform-side follow-ups (other strands)
